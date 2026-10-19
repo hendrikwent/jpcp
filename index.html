@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaaS - Generator Company Profile</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Library untuk Generate PDF & Merge PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+
+    <style>
+        /* Pengaturan Kertas A4 Presisi (Borderless saat dicetak) */
+        .a4-wrapper {
+            width: 210mm;
+            min-height: 297mm;
+            background: white;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
+        }
+        /* Custom Scrollbar untuk area form */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-100 flex h-screen overflow-hidden text-slate-800">
+
+    <!-- BAGIAN KIRI: Form Input -->
+    <div class="w-1/3 bg-white h-full overflow-y-auto border-r border-slate-200 p-6 shadow-lg z-10">
+        <h2 class="text-2xl font-bold text-slate-800 mb-6">Setup Profil Klien</h2>
+        
+        <!-- Form Dasar -->
+        <div class="space-y-4">
+            <div>
+                <label class="block text-sm font-semibold mb-1">Nama Perusahaan (Klien)</label>
+                <input type="text" id="in_nama" value="CV Nusantara Building Material" class="w-full border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-600 focus:outline-none" onkeyup="updatePreview()">
+            </div>
+            
+            <div>
+                <label class="block text-sm font-semibold mb-1">Slogan Bisnis</label>
+                <input type="text" id="in_slogan" value="Pusat Material Bangunan Terlengkap & Terpercaya" class="w-full border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-600 focus:outline-none" onkeyup="updatePreview()">
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold mb-1">Visi Perusahaan</label>
+                <textarea id="in_visi" rows="3" class="w-full border border-slate-300 rounded p-2 focus:ring-2 focus:ring-blue-600 focus:outline-none" onkeyup="updatePreview()">Menjadi penyedia material bangunan utama yang mendukung pembangunan infrastruktur kuat dan berkelanjutan.</textarea>
+            </div>
+
+            <div>
+                <label class="block text-sm font-semibold mb-1">Upload Logo (Maks 1MB)</label>
+                <input type="file" id="in_logo" accept="image/*" class="w-full text-sm border border-slate-300 rounded p-2" onchange="handleImageUpload(this, 'preview_logo', 'base64_URL_Logo')">
+                <!-- Input hidden untuk menyimpan data Base64 yang siap dikirim ke GAS -->
+                <input type="hidden" id="base64_URL_Logo">
+            </div>
+        </div>
+
+        <hr class="my-6">
+
+        <!-- Tombol Aksi -->
+        <div class="flex flex-col space-y-3">
+            <button onclick="saveToCloud()" id="btnSave" class="bg-blue-800 hover:bg-blue-900 text-white font-bold py-3 rounded transition flex justify-center items-center">
+                <span>1. Simpan Data ke Database (Sheets)</span>
+            </button>
+            <button onclick="generatePDF()" class="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded transition">
+                <span>2. Unduh PDF (A4 Borderless)</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- BAGIAN KANAN: Live Preview A4 -->
+    <div class="w-2/3 h-full overflow-y-auto p-8 bg-slate-200">
+        <!-- Kontainer Kertas A4 -->
+        <div id="company-profile-document" class="a4-wrapper flex flex-col">
+            
+            <!-- HEADER (Cover Minimalis) -->
+            <div class="h-64 bg-blue-900 flex flex-col justify-center items-center text-center p-8 text-white relative">
+                <!-- Aksen Geometris -->
+                <div class="absolute bottom-0 w-full h-2 bg-orange-500"></div>
+                
+                <img id="preview_logo" src="https://via.placeholder.com/150x50?text=LOGO+KLIEN" alt="Logo" class="max-h-20 mb-4 bg-white p-2 rounded">
+                <h1 id="out_nama" class="text-4xl font-extrabold tracking-wider uppercase">CV Nusantara Building Material</h1>
+                <p id="out_slogan" class="text-lg mt-2 text-blue-200">Pusat Material Bangunan Terlengkap & Terpercaya</p>
+            </div>
+
+            <!-- KONTEN: Tentang Kami -->
+            <div class="flex-grow p-12">
+                <div class="mb-10">
+                    <h2 class="text-2xl font-bold text-blue-900 mb-4 border-l-4 border-orange-500 pl-4 uppercase">Visi Perusahaan</h2>
+                    <p id="out_visi" class="text-slate-600 leading-relaxed text-lg">Menjadi penyedia material bangunan utama yang mendukung pembangunan infrastruktur kuat dan berkelanjutan.</p>
+                </div>
+                
+                <!-- Ruang untuk section selanjutnya (Misi, Produk, Kontak, Dokumentasi) -->
+                <div class="p-8 border-2 border-dashed border-slate-300 rounded-lg text-center text-slate-400">
+                    Area ini akan diisi layout Grid Dokumentasi Proyek & Misi Perusahaan pada tahap selanjutnya.
+                </div>
+            </div>
+
+            <!-- FOOTER -->
+            <div class="bg-slate-800 text-white text-center py-4 text-sm mt-auto">
+                <span id="out_footer_nama">CV Nusantara Building Material</span> | Company Profile
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. Konfigurasi URL API Backend (GAS) Anda
+        const API_URL = "https://script.google.com/macros/s/AKfycbyECL_7GBOqcP056iMqTvJZqpvL__7koFE2oHKeBlJoie2QrShENo7Z_adq9djdJ1JezQ/exec";
+
+        // 2. Fungsi Live Preview Teks
+        function updatePreview() {
+            document.getElementById('out_nama').innerText = document.getElementById('in_nama').value;
+            document.getElementById('out_footer_nama').innerText = document.getElementById('in_nama').value;
+            document.getElementById('out_slogan').innerText = document.getElementById('in_slogan').value;
+            document.getElementById('out_visi').innerText = document.getElementById('in_visi').value;
+        }
+
+        // 3. Fungsi Validasi & Konversi Gambar ke Base64
+        function handleImageUpload(input, previewId, base64HiddenId) {
+            const file = input.files[0];
+            if (!file) return;
+
+            // Validasi Ukuran (Maks 1MB)
+            if (file.size > 1048576) {
+                alert("Ukuran gambar terlalu besar! Maksimal 1MB untuk menjaga performa server.");
+                input.value = ""; return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                // Tampilkan di A4 Preview
+                document.getElementById(previewId).src = e.target.result;
+                // Simpan Base64 ke input hidden untuk dikirim ke backend
+                document.getElementById(base64HiddenId).value = e.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+
+        // 4. Fungsi Simpan ke Cloud (Kirim JSON ke GAS via Fetch)
+        async function saveToCloud() {
+            const btn = document.getElementById('btnSave');
+            btn.innerHTML = "Sedang Menyimpan... (Harap Tunggu)";
+            btn.disabled = true;
+
+            // Ambil data dari form
+            const payload = {
+                Nama_Perusahaan: document.getElementById('in_nama').value,
+                Slogan: document.getElementById('in_slogan').value,
+                Visi: document.getElementById('in_visi').value,
+                base64_URL_Logo: document.getElementById('base64_URL_Logo').value // Foto berformat text
+            };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    // Menggunakan text/plain untuk bypass preflight CORS di beberapa browser lama
+                    headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                if(result.status === "success") {
+                    alert("Berhasil! Data tersimpan dengan ID: " + result.id_profil);
+                } else {
+                    alert("Gagal menyimpan: " + result.message);
+                }
+            } catch (error) {
+                alert("Terjadi kesalahan jaringan: " + error.message);
+            } finally {
+                btn.innerHTML = "1. Simpan Data ke Database (Sheets)";
+                btn.disabled = false;
+            }
+        }
+
+        // 5. Fungsi Render HTML menjadi PDF Borderless
+        function generatePDF() {
+            const element = document.getElementById('company-profile-document');
+            const opt = {
+                margin:       0,
+                filename:     document.getElementById('in_nama').value + ' - Company Profile.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Jalankan html2pdf
+            html2pdf().set(opt).from(element).save();
+        }
+    </script>
+</body>
+</html>
